@@ -1,6 +1,7 @@
 #include <ndcrash.h>
 #include <jni.h>
 #include <malloc.h>
+#include "../../../libndcrash/src/ndcrash_log.h"
 
 // NDCrash.java methods
 
@@ -13,8 +14,12 @@ JNIEXPORT jint JNICALL Java_ru_ivanarh_jndcrash_NDCrash_nativeInitializeInProces
     const char *crashReportPath = NULL;
     if (jCrashReportPath) {
         crashReportPath = (*env)->GetStringUTFChars(env, jCrashReportPath, NULL);
+        NDCRASHLOG(INFO, "crashReportPath: %s", crashReportPath);
     }
+
     const enum ndcrash_error error = ndcrash_in_init((enum ndcrash_unwinder) unwinder, crashReportPath);
+    NDCRASHLOG(INFO, "nd_crash_init_error: %d", error);
+
     if (jCrashReportPath) {
         (*env)->ReleaseStringUTFChars(env, jCrashReportPath, crashReportPath);
     }
@@ -40,7 +45,9 @@ JNIEXPORT jint JNICALL Java_ru_ivanarh_jndcrash_NDCrash_nativeInitializeOutOfPro
         jstring jSocketName) {
 #ifdef ENABLE_OUTOFPROCESS
     const char *socket_name = jSocketName ? (*env)->GetStringUTFChars(env, jSocketName, NULL) : NULL;
+    NDCRASHLOG(INFO, "nd_crash_out_init socket: %s", socket_name);
     const enum ndcrash_error error = ndcrash_out_init(socket_name);
+    NDCRASHLOG(INFO, "nd_crash_out_init error: %d", error);
     if (socket_name) {
         (*env)->ReleaseStringUTFChars(env, jSocketName, socket_name);
     }
@@ -68,6 +75,7 @@ JavaVM * jndcrash_javavm = NULL;
 /// Called when a native library is loaded.
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved) {
     jndcrash_javavm = vm;
+    NDCRASHLOG(INFO, "nd_crash library loaded");
     return JNI_VERSION_1_4;
 }
 
@@ -92,6 +100,7 @@ typedef struct {
 
 /// Called on daemon start from its background thread.
 static void jndcrash_daemon_start(void *argvoid) {
+    NDCRASHLOG(INFO, "jndcrash_daemon_start");
     jndcrash_callback_arg_t * const arg = (jndcrash_callback_arg_t *) argvoid;
     (*jndcrash_javavm)->AttachCurrentThread(jndcrash_javavm, &arg->daemon_thread_env, NULL);
 }
@@ -125,7 +134,7 @@ JNIEXPORT jint JNICALL Java_ru_ivanarh_jndcrash_NDCrash_nativeStartOutOfProcessD
         crashReportPath = (*env)->GetStringUTFChars(env, jCrashReportPath, 0);
     }
     const char *socket_name = jSocketName ? (*env)->GetStringUTFChars(env, jSocketName, NULL) : NULL;
-
+    NDCRASHLOG(INFO, "nativeStartOutOfProcessDaemon, socket: %s", socket_name);
     jndcrash_callback_arg_t * const arg = calloc(1, sizeof(jndcrash_callback_arg_t));
     arg->jc_NDCrash = (*env)->NewGlobalRef(env, type);
     arg->jm_runOnCrashCallback = (*env)->GetStaticMethodID(env, arg->jc_NDCrash, "runOnCrashCallback", "(Ljava/lang/String;)V");
